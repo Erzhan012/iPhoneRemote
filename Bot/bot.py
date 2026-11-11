@@ -23,6 +23,10 @@ MENU = M([
     [B("Reboot", callback_data="reboot"), B("Shutdown", callback_data="shutdown")],
 ])
 
+def confirm_menu(k):
+    return M([[B(f"Yes, {k}", callback_data=k + "_y"), B("Cancel", callback_data="menu")]])
+
+
 yn = lambda b: "yes" if b else "no"
 
 
@@ -125,11 +129,16 @@ async def on_button(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             st, d = await phone("GET", path)
             text = fmt(d) if st == 200 and "error" not in d else f"error {st}: {d.get('error', '?')}"
         elif k in ("reboot", "shutdown"):
-            await edit(q, f"{k}: confirm on the iPhone screen (30s)...")
+            await q.edit_message_text(f"{k} the iPhone?", reply_markup=confirm_menu(k))
+            return
+        elif k == "menu":
+            text = "main menu"
+        elif k in ("reboot_y", "shutdown_y"):
+            k = k[:-2]
             st, d = await phone("POST", "/" + k, timeout=45.0)
             text = {200: f"{k} confirmed, going down",
                     403: f"{k} declined or timed out on the device",
-                    409: "another confirmation is pending"}.get(st, f"error {st}")
+                    409: "another confirmation is pending"}.get(st, f"error {st}: {d.get('error', '?')}")
         else:
             return
     except (httpx.HTTPError, ValueError):
