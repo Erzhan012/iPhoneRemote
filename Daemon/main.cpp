@@ -7,6 +7,8 @@
 #include <dlfcn.h>
 #include <netinet/in.h>
 #include <signal.h>
+#include <spawn.h>
+#include <sys/wait.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -21,6 +23,8 @@
 #include <mutex>
 #include <string>
 #include <thread>
+
+extern char **environ;
 
 static std::string gToken;
 static int gPort = 8787;
@@ -135,6 +139,27 @@ static bool confirmOnDevice(const char *msg) {
     return rc == 0 && (resp & 0x3) == kCFUserNotificationAlternateResponse;
 }
 
+// lock the device (screen off). private GraphicsServices call first, Activator CLI as fallback.
+// fixed paths/args only, nothing from the request reaches exec.
+static bool lockScreen(const char *&how) {
+    void *h = dlopen("/System/Library/PrivateFrameworks/GraphicsServices.framework/GraphicsServices", RTLD_LAZY);
+    if (h) {
+        auto fn = (void (*)(void))dlsym(h, "GSEventLockDevice");
+        if (fn) { fn(); how = "GSEventLockDevice"; return true; }
+    }
+    const char *act = "/var/jb/usr/bin/activator";
+    if (access(act, X_OK) == 0) {
+        char *argv[] = {(char *)act, (char *)"send", (char *)"libactivator.system.sleepbutton", nullptr};
+        pid_t pid;
+        if (posix_spawn(&pid, act, nullptr, nullptr, argv, environ) == 0) {
+            int st = 0;
+            waitpid(pid, &st, 0);
+            if (WIFEXITED(st) && WEXITSTATUS(st) == 0) { how = "activator"; return true; }
+        }
+    }
+    return false;
+}
+
 static std::mutex gConfirmMu;
 static void power(int fd, bool doReboot) {
     std::unique_lock<std::mutex> lk(gConfirmMu, std::try_to_lock);
@@ -190,6 +215,10 @@ static void serve(int fd, const std::string &peer) {
         else if (path == "/uptime") reply(fd, 200, "OK", dev::json_uptime());
         else if (path == "/all") reply(fd, 200, "OK", dev::json_all());
         else reply(fd, 404, "Not Found", err("not found"));
+    } else if (method == "POST" && path == "/screenoff") {
+        const char *how = "";
+        if (lockScreen(how)) { logmsg("screenoff via %s", how); reply(fd, 200, "OK", "{\"ok\":true}"); }
+        else { logmsg("screenoff failed: no method worked"); reply(fd, 500, "Internal Server Error", err("lock failed")); }
     } else if (method == "POST" && (path == "/reboot" || path == "/shutdown")) {
         power(fd, path == "/reboot");
     } else {
@@ -211,7 +240,7 @@ int main(int argc, char **argv) {
     if (inet_pton(AF_INET, gBind.c_str(), &a.sin_addr) != 1) { logmsg("bad bind addr"); return 1; }
     if (bind(s, (sockaddr *)&a, sizeof a) < 0 || listen(s, 16) < 0) { logmsg("bind/listen failed"); return 1; }
     logmsg("listening on %s:%d", gBind.c_str(), gPort);
-    logmsg("iphoneremoted v0.1.1 confirm=%s", gConfirm.c_str());
+    logmsg("iphoneremoted v0.2.0 confirm=%s", gConfirm.c_str());
 
     for (;;) {
         sockaddr_in c{};
