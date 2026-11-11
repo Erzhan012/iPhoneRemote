@@ -211,6 +211,7 @@ int main(int argc, char **argv) {
     if (inet_pton(AF_INET, gBind.c_str(), &a.sin_addr) != 1) { logmsg("bad bind addr"); return 1; }
     if (bind(s, (sockaddr *)&a, sizeof a) < 0 || listen(s, 16) < 0) { logmsg("bind/listen failed"); return 1; }
     logmsg("listening on %s:%d", gBind.c_str(), gPort);
+    logmsg("iphoneremoted v0.1.1 confirm=%s", gConfirm.c_str());
 
     for (;;) {
         sockaddr_in c{};
