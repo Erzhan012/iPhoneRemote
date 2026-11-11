@@ -1,0 +1,9 @@
+Package: com.gorilla.iphoneremote
+Name: iPhoneRemote
+Version: 0.1.0
+Architecture: iphoneos-arm64
+Description: Remote monitoring daemon for my own device
+Maintainer: gorilla
+Author: gorilla
+Section: System
+Depends: firmware (>= 15.0)

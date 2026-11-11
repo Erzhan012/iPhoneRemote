@@ -1,0 +1,5 @@
+#!/bin/sh
+chmod 600 /var/jb/etc/iphoneremote.conf
+launchctl unload /var/jb/Library/LaunchDaemons/com.gorilla.iphoneremote.plist 2>/dev/null
+launchctl load -w /var/jb/Library/LaunchDaemons/com.gorilla.iphoneremote.plist
+exit 0

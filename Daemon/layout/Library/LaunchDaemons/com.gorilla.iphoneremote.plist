@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+<key>Label</key>
+<string>com.gorilla.iphoneremote</string>
+<key>ProgramArguments</key>
+<array>
+<string>/var/jb/usr/local/bin/iphoneremoted</string>
+</array>
+<key>UserName</key>
+<string>root</string>
+<key>RunAtLoad</key>
+<true/>
+<key>KeepAlive</key>
+<true/>
+<key>StandardErrorPath</key>
+<string>/var/tmp/iphoneremoted.log</string>
+<key>StandardOutPath</key>
+<string>/var/tmp/iphoneremoted.log</string>
+</dict>
+</plist>

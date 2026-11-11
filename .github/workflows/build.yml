@@ -1,0 +1,28 @@
+name: build-deb
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: macos-latest
+    env:
+      THEOS: ${{ github.workspace }}/theos
+      IPR_TOKEN: ${{ secrets.IPR_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install ldid xz
+      - name: theos + sdk
+        run: |
+          git clone --recursive --depth=1 https://github.com/theos/theos.git "$THEOS"
+          git clone --depth=1 https://github.com/theos/sdks.git sdks_tmp
+          mkdir -p "$THEOS/sdks"
+          mv sdks_tmp/*.sdk "$THEOS/sdks/"
+      - name: build
+        working-directory: Daemon
+        run: |
+          test -n "$IPR_TOKEN"
+          chmod 755 layout/DEBIAN/*
+          sed -i '' "s/__TOKEN__/$IPR_TOKEN/" layout/etc/iphoneremote.conf
+          make package FINALPACKAGE=1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iphoneremote-deb
+          path: Daemon/packages/*.deb

@@ -1,0 +1,7 @@
+.env
+.phone_token
+bot.log
+__pycache__/
+.theos/
+packages/
+obj/
