@@ -25,6 +25,7 @@
 static std::string gToken;
 static int gPort = 8787;
 static std::string gBind = "0.0.0.0";
+static std::string gConfirm = "none";  // none | device (CFUserNotification alert on the phone)
 static std::atomic<int> gActive{0};
 
 static void logmsg(const char *fmt, ...) {
@@ -52,6 +53,7 @@ static bool loadConf(const char *path) {
         if (k == "token") gToken = v;
         else if (k == "port") gPort = atoi(v.c_str());
         else if (k == "bind") gBind = v;
+        else if (k == "confirm") gConfirm = v;
     }
     return gToken.size() >= 16;
 }
@@ -129,6 +131,7 @@ static bool confirmOnDevice(const char *msg) {
                                                nullptr, CFSTR("iPhoneRemote"), m, CFSTR("Cancel"),
                                                CFSTR("Confirm"), nullptr, &resp);
     CFRelease(m);
+    logmsg("alert rc=%d resp=%lu", (int)rc, (unsigned long)(resp & 0x3));
     return rc == 0 && (resp & 0x3) == kCFUserNotificationAlternateResponse;
 }
 
@@ -136,12 +139,14 @@ static std::mutex gConfirmMu;
 static void power(int fd, bool doReboot) {
     std::unique_lock<std::mutex> lk(gConfirmMu, std::try_to_lock);
     if (!lk.owns_lock()) { reply(fd, 409, "Conflict", err("confirmation already pending")); return; }
-    bool ok = confirmOnDevice(doReboot ? "Remote request: REBOOT this iPhone?"
-                                       : "Remote request: SHUT DOWN this iPhone?");
-    if (!ok) {
-        logmsg("%s declined/timeout on device", doReboot ? "reboot" : "shutdown");
-        reply(fd, 403, "Forbidden", err("declined or timed out on device"));
-        return;
+    if (gConfirm == "device") {
+        bool ok = confirmOnDevice(doReboot ? "Remote request: REBOOT this iPhone?"
+                                           : "Remote request: SHUT DOWN this iPhone?");
+        if (!ok) {
+            logmsg("%s declined/timeout on device", doReboot ? "reboot" : "shutdown");
+            reply(fd, 403, "Forbidden", err("declined or timed out on device"));
+            return;
+        }
     }
     logmsg("%s confirmed", doReboot ? "reboot" : "shutdown");
     reply(fd, 200, "OK", "{\"ok\":true}");
